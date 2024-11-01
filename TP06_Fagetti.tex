@@ -1,0 +1,367 @@
+\documentclass{article}
+\usepackage{graphicx} % Required for inserting images
+\usepackage[spanish]{babel}
+\usepackage{multirow}
+
+\title{ Trabajo Práctico \\ 
+    \vspace{15}
+    \textit{Introducci\'on a routing} \\
+}
+\author{Nicolás Fagetti}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\textbf{
+Configuracion de las PCs: \\
+------------------------------------------------------------------------ \\
+}
+\begin{verbatim}
+    C:\> ipconfig 198.162.0.2 255.255.255.0
+    C:\>ipconfig
+
+FastEthernet0 Connection:(default port)
+
+   Connection-specific DNS Suffix..: 
+   Link-local IPv6 Address.........: FE80::290:2BFF:FE42:18E9
+   IPv6 Address....................: ::
+   IPv4 Address....................: 198.162.0.2
+   Subnet Mask.....................: 255.255.255.0
+   Default Gateway.................: ::
+                                     0.0.0.0
+
+Bluetooth Connection:
+
+   Connection-specific DNS Suffix..: 
+   Link-local IPv6 Address.........: ::
+   IPv6 Address....................: ::
+   IPv4 Address....................: 0.0.0.0
+   Subnet Mask.....................: 0.0.0.0
+   Default Gateway.................: ::
+                                     0.0.0.0
+
+    C:\> ipconfig 198.162.1.2 255.255.255.0
+    C:\>ipconfig
+
+FastEthernet0 Connection:(default port)
+
+   Connection-specific DNS Suffix..: 
+   Link-local IPv6 Address.........: FE80::201:42FF:FE7C:2AC
+   IPv6 Address....................: ::
+   IPv4 Address....................: 198.162.1.2
+   Subnet Mask.....................: 255.255.255.0
+   Default Gateway.................: ::
+                                     0.0.0.0
+
+Bluetooth Connection:
+
+   Connection-specific DNS Suffix..: 
+   Link-local IPv6 Address.........: ::
+   IPv6 Address....................: ::
+   IPv4 Address....................: 0.0.0.0
+   Subnet Mask.....................: 0.0.0.0
+   Default Gateway.................: ::
+                                     0.0.0.0
+                                     
+\end{verbatim}
+\textbf{
+Configuracion de puertos GigabitEthernet del Router: \\
+------------------------------------------------------------------------ \\
+}
+\begin{verbatim}
+    Router0>enable
+    Router0#configure terminal
+    Enter configuration commands, one per line.  End with CNTL/Z.
+    Router0(config)#interface gigabitEthernet 0/0
+    Router0(config-if)#ip address 192.168.0.1 255.255.255.0
+    Router0(config-if)#no shutdown
+
+    Router0(config-if)#
+    %LINK-5-CHANGED: Interface GigabitEthernet0/0, changed state to up
+    %LINEPROTO-5-UPDOWN: Line protocol on Interface GigabitEthernet0/0, changed state to up
+
+    Router0(config)#interface gigabitEthernet 0/1
+    Router0(config-if)#ip address 192.168.1.1 255.255.255.0
+    Router0(config-if)#no shutdown
+
+    Router0(config-if)#
+    %LINK-5-CHANGED: Interface GigabitEthernet0/1, changed state to up
+    %LINEPROTO-5-UPDOWN: Line protocol on Interface GigabitEthernet0/1, changed state to up
+
+    Router0(config)#do show ip route
+Codes: L - local, C - connected, S - static, R - RIP, M - mobile, B - BGP
+       D - EIGRP, EX - EIGRP external, O - OSPF, IA - OSPF inter area
+       N1 - OSPF NSSA external type 1, N2 - OSPF NSSA external type 2
+       E1 - OSPF external type 1, E2 - OSPF external type 2, E - EGP
+       i - IS-IS, L1 - IS-IS level-1, L2 - IS-IS level-2, ia - IS-IS inter area
+       * - candidate default, U - per-user static route, o - ODR
+       P - periodic downloaded static route
+
+Gateway of last resort is not set
+
+     192.168.0.0/24 is variably subnetted, 2 subnets, 2 masks
+C       192.168.0.0/24 is directly connected, GigabitEthernet0/0
+L       192.168.0.1/32 is directly connected, GigabitEthernet0/0
+     192.168.1.0/24 is variably subnetted, 2 subnets, 2 masks
+C       192.168.1.0/24 is directly connected, GigabitEthernet0/1
+L       192.168.1.1/32 is directly connected, GigabitEthernet0/1
+
+\end{verbatim}
+
+\newpage
+\section{Ruteo b\'asico de host}
+\subsection{Configuraci\'on de host}
+
+Si enviamos un ping de la PC0 a la PC1 (en otra red), el mismo no sale de la PC0. Esto sucede porque la direcci\'on de destino indicada no se encuentra dentro de la misma subred, y tampoco es una direcci\'on de broadcast. Adem\'as, el Default Gateway no est\'a seteado, por lo que no sabe a d\'onde enviar el paquete con destino desconocido. \\
+
+Al cambiar la m\'ascara en PC0, si enviamos el mismo ping veremos que env\'ia un ARP que viaja a trav\'es del switch hasta el Router y retorna a la PC0 con \'exito. Luego, env\'ia un ICMP que tambi\'en viaja a trav\'es del switch pero al llegar al Router, es descartado. Esto sucede porque el Router, al recibir el mensaje, busca la direcci\'on IP destino en la tabla CEF y no la encuentra, y luego la busca en la tabla de ruteo, donde la encuentra e intenta ubicar el pr\'oximo salto. Como este nodo no se encuentra en la tabla ARP, se env\'ia un mensaje ARP y el paquete se descarta. Este mensaje ARP que se env\'ia al destino tras descartar el paquete de origen, es retornado al Router con \'exito. \\
+
+Al configurar la Default Gateway para la PC0, si enviamos el ping veremos que se vuelve a enviar el ARP hacia el Router igual que en el caso anterior, pero el ICMP tambi\'en viaja hacia el Router y \'este env\'ia un paquete unicast hacia la PC1, el cual intentar\'a responder, pero al no reconocer a la direcci\'on de destino de la respuesta (PC0) como parte de la subred o direcci\'on de broadcast, y no poseer configurado su Default Gateway, descartar\'a el mensaje ICMP. \\
+
+\subsection{Default gateway}
+Configuramos el Default Gateway para ambas PCs a trav\'es del siguiente comando ampliado: \\\\
+(PC 0)
+\begin{verbatim}
+    C:\>ipconfig 192.168.0.2 255.255.255.0 192.168.0.1
+\end{verbatim}
+(PC 1)
+\begin{verbatim}
+    C:\>ipconfig 192.168.1.2 255.255.255.0 192.168.1.1
+\end{verbatim}
+
+Si enviamos el ping nuevamente desde PC0 a PC1, veremos que primeramente enviar\'a un paquete ARP y luego enviar\'a el ICMP correctamente (en rigor, el primer intento de env\'io falla, ya que el Router primero descarta el paquete hasta haber realizado el env\'io de un ARP a la PC1). \\
+
+\section{Los routers}
+\subsection{Forwarding vs routing}
+\subsection{Static routing}
+Tras configurar las direcciones ip de los hosts y los routers, adem\'as del clock rate del extremo DCE de la conexi\'on serial entre ambos routers, verificamos que al enviar los pings entre PC0 y PC1, y entre PC2 y PC3, respectivamente, el env\'io es exitoso. \\
+
+Sin embargo, al intentar enviar desde PC0 a PC3, por ejemplo, el env\'io falla, sin poder continuar m\'as all\'a del Router0. Agregamos entonces nuevas rutas est\'aticamente, con los siguientes comandos:
+\begin{verbatim}
+    Router0(config)#ip route 192.168.2.0 255.255.255.0 192.168.5.1
+    Router0(config)#ip route 192.168.3.0 255.255.255.0 192.168.5.1
+
+    Router1(config)#ip route 192.168.0.0 255.255.255.0 192.168.5.2
+    Router1(config)#ip route 192.168.1.0 255.255.255.0 192.168.5.2
+    
+\end{verbatim}
+
+Verificamos que la configuraci\'on sea exitosa, con el comando \texttt{show ip route}: \\
+\begin{verbatim}
+Router1(config)#do show ip route
+Codes: L - local, C - connected, S - static, R - RIP, M - mobile, B - BGP
+       D - EIGRP, EX - EIGRP external, O - OSPF, IA - OSPF inter area
+       N1 - OSPF NSSA external type 1, N2 - OSPF NSSA external type 2
+       E1 - OSPF external type 1, E2 - OSPF external type 2, E - EGP
+       i - IS-IS, L1 - IS-IS level-1, L2 - IS-IS level-2, ia - IS-IS inter area
+       * - candidate default, U - per-user static route, o - ODR
+       P - periodic downloaded static route
+
+Gateway of last resort is not set
+
+S    192.168.0.0/24 [1/0] via 192.168.5.2
+S    192.168.1.0/24 [1/0] via 192.168.5.2
+     192.168.2.0/24 is variably subnetted, 2 subnets, 2 masks
+C       192.168.2.0/24 is directly connected, GigabitEthernet0/0
+L       192.168.2.1/32 is directly connected, GigabitEthernet0/0
+     192.168.3.0/24 is variably subnetted, 2 subnets, 2 masks
+C       192.168.3.0/24 is directly connected, GigabitEthernet0/1
+L       192.168.3.1/32 is directly connected, GigabitEthernet0/1
+     192.168.5.0/24 is variably subnetted, 2 subnets, 2 masks
+C       192.168.5.0/30 is directly connected, Serial0/1/0
+L       192.168.5.1/32 is directly connected, Serial0/1/0
+
+\end{verbatim}
+Algo similar veremos en el Router0: \\
+\begin{verbatim}
+Router0(config)# do show ip route
+Codes: L - local, C - connected, S - static, R - RIP, M - mobile, B - BGP
+       D - EIGRP, EX - EIGRP external, O - OSPF, IA - OSPF inter area
+       N1 - OSPF NSSA external type 1, N2 - OSPF NSSA external type 2
+       E1 - OSPF external type 1, E2 - OSPF external type 2, E - EGP
+       i - IS-IS, L1 - IS-IS level-1, L2 - IS-IS level-2, ia - IS-IS inter area
+       * - candidate default, U - per-user static route, o - ODR
+       P - periodic downloaded static route
+
+Gateway of last resort is not set
+
+     192.168.0.0/24 is variably subnetted, 2 subnets, 2 masks
+C       192.168.0.0/24 is directly connected, GigabitEthernet0/0
+L       192.168.0.1/32 is directly connected, GigabitEthernet0/0
+     192.168.1.0/24 is variably subnetted, 2 subnets, 2 masks
+C       192.168.1.0/24 is directly connected, GigabitEthernet0/1
+L       192.168.1.1/32 is directly connected, GigabitEthernet0/1
+S    192.168.2.0/24 [1/0] via 192.168.5.1
+S    192.168.3.0/24 [1/0] via 192.168.5.1
+     192.168.5.0/24 is variably subnetted, 2 subnets, 2 masks
+C       192.168.5.0/30 is directly connected, Serial0/1/0
+L       192.168.5.2/32 is directly connected, Serial0/1/0
+
+\end{verbatim}
+
+Como vemos, las nuevas rutas han sido correctamente agregadas, cosa que podremos constatar al hacer nuevamente el env\'io entre los diferentes hosts. Los mensajes ICMP viajan sin problemas a trav\'es de ambos routers y llegan a su destino correctamente. \\
+
+Para sumarizar las redes contiguas en una nueva que las contenga, realizamos el siguiente proceso: \\
+
+1- Convertimos las direcciones contiguas a binario:
+\begin{verbatim}
+    192.168.0.0 --> 11000000 10101000 00000000 00000000
+    192.168.1.0 --> 11000000 10101000 00000001 00000000
+    192.168.2.0 --> 11000000 10101000 00000010 00000000
+    192.168.3.0 --> 11000000 10101000 00000011 00000000
+    
+\end{verbatim}
+
+2- Verificamos los bits coincidentes en ambas direcciones de izquierda a derecha. El prefijo obtenido es el siguiente: \\
+
+\texttt{11000000 10101000 000000} \\
+
+El prefijo obtenido posee 22 bits, por lo que el sufijo de la nueva direcci\'on sumarizada ser\'a ``/22''. \\
+
+3- Completamos el resto de bits con 0s, hasta completar los 32 bits, y lo convertimos a decimal: \\
+
+\texttt{11000000 10101000 000000\textit{00 00000000} --> 192.168.0.0} \\
+
+4- Le agregamos el sufijo obtenido en el paso 2: \\
+
+\texttt{192.168.0.0/22} \\
+
+Si queremos, podemos convertir el sufijo en m\'ascara decimal: \\
+
+22 bits = \texttt{11111111.11111111.11111100.00000000 = 255.255.252.0} \\\\
+
+Una vez obtenida la nueva direcci\'on sumarizada, podemos reconfigurar las rutas: \\
+\begin{verbatim}
+Router0(config)#ip route 192.168.0.0 255.255.252.0 192.168.5.1
+Router0(config)#do show ip route
+Codes: L - local, C - connected, S - static, R - RIP, M - mobile, B - BGP
+       D - EIGRP, EX - EIGRP external, O - OSPF, IA - OSPF inter area
+       N1 - OSPF NSSA external type 1, N2 - OSPF NSSA external type 2
+       E1 - OSPF external type 1, E2 - OSPF external type 2, E - EGP
+       i - IS-IS, L1 - IS-IS level-1, L2 - IS-IS level-2, ia - IS-IS inter area
+       * - candidate default, U - per-user static route, o - ODR
+       P - periodic downloaded static route
+
+Gateway of last resort is not set
+
+S    192.168.0.0/22 [1/0] via 192.168.5.1
+     192.168.0.0/24 is variably subnetted, 2 subnets, 2 masks
+C       192.168.0.0/24 is directly connected, GigabitEthernet0/0
+L       192.168.0.1/32 is directly connected, GigabitEthernet0/0
+     192.168.1.0/24 is variably subnetted, 2 subnets, 2 masks
+C       192.168.1.0/24 is directly connected, GigabitEthernet0/1
+L       192.168.1.1/32 is directly connected, GigabitEthernet0/1
+S    192.168.2.0/24 [1/0] via 192.168.5.1
+S    192.168.3.0/24 [1/0] via 192.168.5.1
+     192.168.5.0/24 is variably subnetted, 2 subnets, 2 masks
+C       192.168.5.0/30 is directly connected, Serial0/1/0
+L       192.168.5.2/32 is directly connected, Serial0/1/0
+
+\end{verbatim}
+
+Como se puede apreciar, la nueva entrada sumarizada aparece correctamente, pero las entradas anteriores contin\'uan registradas. Para eliminarlas, ingresamos el siguiente comando: \\
+\begin{verbatim}
+Router0(config)#no ip route 192.168.2.0 255.255.255.0 192.168.5.1
+Router0(config)#do show ip route
+Codes: L - local, C - connected, S - static, R - RIP, M - mobile, B - BGP
+       D - EIGRP, EX - EIGRP external, O - OSPF, IA - OSPF inter area
+       N1 - OSPF NSSA external type 1, N2 - OSPF NSSA external type 2
+       E1 - OSPF external type 1, E2 - OSPF external type 2, E - EGP
+       i - IS-IS, L1 - IS-IS level-1, L2 - IS-IS level-2, ia - IS-IS inter area
+       * - candidate default, U - per-user static route, o - ODR
+       P - periodic downloaded static route
+
+Gateway of last resort is not set
+
+S    192.168.0.0/22 [1/0] via 192.168.5.1
+     192.168.0.0/24 is variably subnetted, 2 subnets, 2 masks
+C       192.168.0.0/24 is directly connected, GigabitEthernet0/0
+L       192.168.0.1/32 is directly connected, GigabitEthernet0/0
+     192.168.1.0/24 is variably subnetted, 2 subnets, 2 masks
+C       192.168.1.0/24 is directly connected, GigabitEthernet0/1
+L       192.168.1.1/32 is directly connected, GigabitEthernet0/1
+S    192.168.3.0/24 [1/0] via 192.168.5.1
+     192.168.5.0/24 is variably subnetted, 2 subnets, 2 masks
+C       192.168.5.0/30 is directly connected, Serial0/1/0
+L       192.168.5.2/32 is directly connected, Serial0/1/0
+
+\end{verbatim}
+
+Como vemos, la entrada \texttt{192.168.2.0} ya no aparece. Haremos lo mismo con la otra entrada, y repetiremos el proceso en el otro router: \\
+\begin{verbatim}
+Router0(config)#no ip route 192.168.3.0 255.255.255.0 192.168.5.1
+
+Router1(config)#ip route 192.168.0.0 255.255.252.0 192.168.5.2
+Router1(config)#no ip route 192.168.0.0 255.255.255.0 192.168.5.2
+Router1(config)#no ip route 192.168.1.0 255.255.255.0 192.168.5.2
+Router1(config)#do show ip route
+Codes: L - local, C - connected, S - static, R - RIP, M - mobile, B - BGP
+       D - EIGRP, EX - EIGRP external, O - OSPF, IA - OSPF inter area
+       N1 - OSPF NSSA external type 1, N2 - OSPF NSSA external type 2
+       E1 - OSPF external type 1, E2 - OSPF external type 2, E - EGP
+       i - IS-IS, L1 - IS-IS level-1, L2 - IS-IS level-2, ia - IS-IS inter area
+       * - candidate default, U - per-user static route, o - ODR
+       P - periodic downloaded static route
+
+Gateway of last resort is not set
+
+S    192.168.0.0/22 [1/0] via 192.168.5.2
+     192.168.2.0/24 is variably subnetted, 2 subnets, 2 masks
+C       192.168.2.0/24 is directly connected, GigabitEthernet0/0
+L       192.168.2.1/32 is directly connected, GigabitEthernet0/0
+     192.168.3.0/24 is variably subnetted, 2 subnets, 2 masks
+C       192.168.3.0/24 is directly connected, GigabitEthernet0/1
+L       192.168.3.1/32 is directly connected, GigabitEthernet0/1
+     192.168.5.0/24 is variably subnetted, 2 subnets, 2 masks
+C       192.168.5.0/30 is directly connected, Serial0/1/0
+L       192.168.5.1/32 is directly connected, Serial0/1/0
+
+\end{verbatim}
+
+De esta forma, queda reconfigurada la ruta entre redes. \\
+
+Para configurar el default gateway en los routers, ingresamos el prefix 0.0.0.0 0.0.0.0 a trav\'es del comando \texttt{ip route}: \\
+\begin{verbatim}
+Router0(config)#ip route 0.0.0.0 0.0.0.0 192.168.5.1
+Router0(config)#do show ip route
+Codes: L - local, C - connected, S - static, R - RIP, M - mobile, B - BGP
+       D - EIGRP, EX - EIGRP external, O - OSPF, IA - OSPF inter area
+       N1 - OSPF NSSA external type 1, N2 - OSPF NSSA external type 2
+       E1 - OSPF external type 1, E2 - OSPF external type 2, E - EGP
+       i - IS-IS, L1 - IS-IS level-1, L2 - IS-IS level-2, ia - IS-IS inter area
+       * - candidate default, U - per-user static route, o - ODR
+       P - periodic downloaded static route
+
+Gateway of last resort is 192.168.5.1 to network 0.0.0.0
+
+S    192.168.0.0/22 [1/0] via 192.168.5.1
+     192.168.0.0/24 is variably subnetted, 2 subnets, 2 masks
+C       192.168.0.0/24 is directly connected, GigabitEthernet0/0
+L       192.168.0.1/32 is directly connected, GigabitEthernet0/0
+     192.168.1.0/24 is variably subnetted, 2 subnets, 2 masks
+C       192.168.1.0/24 is directly connected, GigabitEthernet0/1
+L       192.168.1.1/32 is directly connected, GigabitEthernet0/1
+     192.168.5.0/24 is variably subnetted, 2 subnets, 2 masks
+C       192.168.5.0/30 is directly connected, Serial0/1/0
+L       192.168.5.2/32 is directly connected, Serial0/1/0
+S*   0.0.0.0/0 [1/0] via 192.168.5.1
+
+\end{verbatim}
+
+De la informaci\'on volcada, podemos verificar que el ``last resort gateway'' (gateway de \'ultimo recurso) se encuentra ahora seteado, y aparece una nueva entrada marcada con S*, que indica dicha ruta. \\
+
+\subsection{Redes stubs}
+En el escenario de 4 hosts, se puede decir que tenemos 4 redes stub, ya que todas se comunican con las otras redes mp contiguas a trav\'es de un \'unico gateway. \\
+
+En las redes stub, cada host tendr\'a un IP diferente, todos compartir\'an la misma m\'ascara, y todos tendr\'an una entrada en su tabla de ruteo para poder acceder a hosts fuera de su red, es decir, un default gateway. \\
+
+Si ampl\'io el escenario, por ejemplo, mejorando la conectividad agregando un nuevo Router2 conectado al Router1, tendremos una nueva interfaz conectada al Router1, por lo que deberemos definir por cu\'al de las 2 interfaces debo enviar el tr\'afico hacia las otras redes. \\
+
+\newpage
+\section{Referencias}
+\begin{itemize}
+    \item https://www.cyberghostvpn.com/es/glossary/stub-network
+    \item https://community.cisco.com/t5/discusiones-routing-y-switching/sumarizaci\'on/td-p/3394672
+    \item https://github.com/moro1982/tp-intro2routing
+\end{document}
